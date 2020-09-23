@@ -28,3 +28,5 @@ RUN mkdir /tmp/nvd && \
     rm -Rf /tmp/nvd
 
 WORKDIR /usr/src/nvidia-$DRIVER_VERSION
+
+ENTRYPOINT [ "/usr/local/bin/nvidia-driver", "init" ]

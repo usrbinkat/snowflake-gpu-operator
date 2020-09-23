@@ -23,6 +23,10 @@ spec:
           value: 4.18.0-147.8.1.el8_1.x86_64
         - name: GCC_VERSION 
           value: 8.3.1
+        - name: container
+          value: oci
+        - name: PATH
+          value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
   postCommit: {}
   source:
     type: Git
