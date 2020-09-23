@@ -2,6 +2,7 @@ FROM quay.io/spankes/nvd-driver-base:440.64.00-rhcos4.4
 
 ENV KERNEL_VERSION 4.18.0-147.8.1.el8_1.x86_64
 ENV GCC_VERSION 8.3.1
+ENV DRIVER_VERSION 440.64.00
 
 RUN mkdir /tmp/nvd && \
     cd /tmp/nvd && \
