@@ -25,6 +25,7 @@ RUN mkdir /tmp/nvd && \
     extract-vmlinux ./lib/modules/${KERNEL_VERSION}/vmlinuz | strings | grep -E '^Linux version' | sed 's/^\(.*\)\s\+(.*)$/\1/' > version  && \
     mv version /lib/modules/${KERNEL_VERSION}/proc && \
     yum install -q -y "gcc-${GCC_VERSION}" && \
+    yum -y update --security && \
     rm -Rf /tmp/nvd
 
 WORKDIR /usr/src/nvidia-$DRIVER_VERSION

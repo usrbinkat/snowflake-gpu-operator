@@ -1,5 +1,3 @@
 FROM nvidia/driver:440.64.00-rhcos4.4
 
-RUN yum -y update --security
-
 COPY bin/nvidia-driver /usr/local/bin/nvidia-driver
