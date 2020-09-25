@@ -1,7 +1,9 @@
 #FROM quay.io/spankes/nvd-driver-base:440.64.00-rhcos4.4 as spankes
 #FROM nvidia/driver:440.64.00-rhcos4.4 as upstream
+#FROM registry.access.redhat.com/ubi8/ubi:latest
 
-FROM registry.access.redhat.com/ubi8/ubi:latest
+FROM nvidia/driver:440.64.00-rhcos4.4
+
 ENV GCC_VERSION=8.3.1
 ENV DRIVER_VERSION=440.64.00
 ENV KERNEL_VERSION=4.18.0-147.8.1.el8_1.x86_64
