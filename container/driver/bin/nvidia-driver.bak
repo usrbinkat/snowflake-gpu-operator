@@ -9,27 +9,87 @@ DRIVER_VERSION=${DRIVER_VERSION:?"Missing driver version"}
 KERNEL_UPDATE_HOOK=/run/kernel/postinst.d/update-nvidia-driver
 
 _update_package_cache() {
-  echo "skipping..."
+    if [ "${PACKAGE_TAG:-}" != "builtin" ]; then
+        echo "Updating the package cache..."
+       #yum -q makecache
+    fi
 }
 
 _cleanup_package_cache() {
-  echo "skipping..."
+    if [ "${PACKAGE_TAG:-}" != "builtin" ]; then
+        echo "Cleaning up the package cache..."
+        rm -rf /var/cache/yum/*
+    fi
 }
 
 # Resolve the kernel version to the form major.minor.patch-revision.
 _resolve_kernel_version() {
+    local version=$(yum -q list available --showduplicates kernel-headers |
+      awk -v arch=$(uname -m) 'NR>1 {print $2"."arch}' | tac | grep -E -m1 "^${KERNEL_VERSION/latest/.*}")
+
+    echo "Resolving Linux kernel version..."
+    if [ -z "${version}" ]; then
+        echo "Could not resolve Linux kernel version" >&2
+        return 1
+    fi
+    KERNEL_VERSION="${version}"
     echo "Proceeding with Linux kernel version ${KERNEL_VERSION}"
     return 0
 }
 
 # Install the kernel modules header/builtin/order files and generate the kernel version string.
 _install_prerequisites() (
-    echo "prereqs are in custom docker image now..."
+    local tmp_dir=$(mktemp -d)
+
+    trap "rm -rf ${tmp_dir}" EXIT
+    cd ${tmp_dir}
+
+   #dnf install -q -y elfutils-libelf.x86_64 elfutils-libelf-devel.x86_64
+
+    rm -rf /lib/modules/${KERNEL_VERSION}
+    mkdir -p /lib/modules/${KERNEL_VERSION}/proc
+
+    echo "Installing Linux kernel headers..."
+   #dnf -q -y install kernel-headers-${KERNEL_VERSION} kernel-devel-${KERNEL_VERSION} > /dev/null
+    ln -s /usr/src/kernels/${KERNEL_VERSION} /lib/modules/${KERNEL_VERSION}/build
+
+    echo "Installing Linux kernel module files..."
+   #dnf install -y -q kernel-core-${KERNEL_VERSION} --setopt=install_weak_deps=False --best --downloadonly --downloaddir=$(pwd)
+    cat /root/nvd/kernel-core-*.rpm | rpm2cpio | cpio -idm --quiet
+    #rm ./*.rpm
+
+   #mv /lib/modules/${KERNEL_VERSION}/modules.* /lib/modules/${KERNEL_VERSION}
+   #mv /lib/modules/${KERNEL_VERSION}/kernel /lib/modules/${KERNEL_VERSION}
+    depmod ${KERNEL_VERSION}
+
+    echo "Generating Linux kernel version string..."
+    extract-vmlinux /root/nvd/lib/modules/${KERNEL_VERSION}/vmlinuz | strings | grep -E '^Linux version' | sed 's/^\(.*\)\s\+(.*)$/\1/' > version
+    if [ -z "$(<version)" ]; then
+        echo "Could not locate Linux kernel version string" >&2
+        return 1
+    fi
+    mv /root/nvd/version /lib/modules/${KERNEL_VERSION}/proc
+
+    # Parse gcc version
+    # gcc_version is expected to match x.y.z
+    # current_gcc is expected to match 'gcc-x.y.z-rel.el8.x86_64
+    local gcc_version=$(cat /lib/modules/${KERNEL_VERSION}/proc/version | grep -Eo "gcc version ([0-9\.]+)" | grep -Eo "([0-9\.]+)")
+    local current_gcc=$(rpm -qa gcc)
+    echo "kernel requires gcc version: 'gcc-${gcc_version}', current gcc version is '${current_gcc}'"
+
+    if [[ "gcc-${gcc_version}" != "${current_gcc}"* ]]; then
+       echo "skipping gcc install"
+       #yum install -q -y "gcc-${gcc_version}"
+    fi
 )
 
 # Cleanup the prerequisites installed above.
 _remove_prerequisites() {
     true
+    #if [ "${PACKAGE_TAG:-}" != "builtin" ]; then
+        # yum -q -y remove kernel-headers-${KERNEL_VERSION} kernel-devel-${KERNEL_VERSION} > /dev/null
+        # TODO remove module files not matching an existing driver package.
+    #fi
 }
 
 # Check if the kernel version requires a new precompiled driver packages.
@@ -42,6 +102,7 @@ _kernel_requires_package() {
     cd /usr/src/nvidia-${DRIVER_VERSION}/kernel
 
     # When the kernel version is latest on host, this check fails and lead to recompilation, even when precompiled modules exist.
+    #if [ "${KERNEL_VERSION}" != "$(uname -r)" ]; then
     proc_mount_arg="--proc-mount-point /lib/modules/${KERNEL_VERSION}/proc"
     #fi
     for pkg_name in $(ls -d -1 precompiled/** 2> /dev/null); do
@@ -329,7 +390,7 @@ fi
 eval set -- "${options}"
 
 ACCEPT_LICENSE=""
-KERNEL_VERSION=4.18.0-147.8.1.el8_1.x86_64
+KERNEL_VERSION=$(uname -r)
 PRIVATE_KEY=""
 PACKAGE_TAG=""
 
